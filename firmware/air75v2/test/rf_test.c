@@ -47,6 +47,24 @@ int main(void) {
     CHECK(resets >= 1 && !r.ready, "an unresponsive radio gets reset and re-handshaked");
     uint8_t bad[] = {0x5A, RFC_HAND, 0, 1, 0, 9}; r.hand_ok = false; feed(&r, bad, 6, t); rf_task(&r, t + 5);
     CHECK(!r.hand_ok, "bad checksum is ignored");
+    /* level-2 sleep: connected -> SET_CONFIG(power-down delay), no polling while asleep, wake = HAND then an immediate status sync */
+    r.ready = true; r.state = RF_CONNECT; r.link_mode = LINK_BLE1; r.t_sync = t; nlog = 0; rf_sleep(&r);
+    i = find(RFC_SET_CONFIG); CHECK(i >= 0 && log_n[i] == 6 && log_[i][4] == RF_POWER_DOWN_DELAY && log_[i][5] == RF_POWER_DOWN_DELAY && find(RFC_SLEEP) < 0, "sleeping while connected sends SET_CONFIG(24) with its plain-sum checksum");
+    nlog = 0; for (int k = 0; k < 2000; k++, t++) rf_task(&r, t);
+    CHECK(nlog == 0 && r.asleep, "no status polling while asleep");
+    nlog = 0; rf_wake(&r); rf_task(&r, t + 1);
+    CHECK(!r.asleep && log_[0][1] == RFC_HAND && find(RFC_STS_SYNC) > 0, "waking sends HAND and polls again at once");
+    r.state = RF_DISCONNECT; nlog = 0; rf_sleep(&r);
+    i = find(RFC_SLEEP); CHECK(i >= 0 && log_n[i] == 6 && log_[i][4] == 0 && log_[i][5] == 0 && find(RFC_SET_CONFIG) < 0, "sleeping while not connected sends SLEEP");
+    rf_wake(&r); nlog = 0; rf_sleep(&r); rf_sleep(&r);
+    CHECK(nlog == 1, "sleeping twice sends the command once");
+    rf_wake(&r);
+    rf_set_poll(&r, RF_SYNC_MS_DIM); r.t_sync = t; nlog = 0;
+    for (int k = 0; k < 450; k++, t++) rf_task(&r, t);
+    CHECK(find(RFC_STS_SYNC) < 0, "level 1: no status poll within 450 ms");
+    for (int k = 0; k < 100; k++, t++) rf_task(&r, t);
+    CHECK(find(RFC_STS_SYNC) >= 0, "level 1: polled every 500 ms");
+    rf_set_poll(&r, 0); CHECK(r.sync_ms == RF_SYNC_MS, "default poll interval is 200 ms again");
     printf("\nRF: %s\n", fails ? "FAILED" : "ALL PASS");
     return fails != 0;
 }

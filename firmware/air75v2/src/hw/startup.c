@@ -28,11 +28,14 @@ void Reset_Handler(void) {
 void Default_Handler(void) { for (;;) {} }
 #define WEAK_ISR __attribute__((weak, alias("Default_Handler")))
 void NMI_Handler(void) WEAK_ISR; void HardFault_Handler(void) WEAK_ISR; void SVC_Handler(void) WEAK_ISR;
+void RTC_IRQHandler(void) WEAK_ISR; void EXTI0_1_IRQHandler(void) WEAK_ISR; void EXTI2_3_IRQHandler(void) WEAK_ISR; void EXTI4_15_IRQHandler(void) WEAK_ISR;
 void PendSV_Handler(void) WEAK_ISR; void SysTick_Handler(void) WEAK_ISR; void USB_IRQHandler(void) WEAK_ISR; void USART1_IRQHandler(void) WEAK_ISR;
 
 __attribute__((section(".isr_vector"), used)) void (*const vectors[48])(void) = {
     (void (*)(void))&_estack, Reset_Handler, NMI_Handler, HardFault_Handler, 0, 0, 0, 0, 0, 0, 0, SVC_Handler, 0, 0, PendSV_Handler, SysTick_Handler,
-    /* IRQ 0..26 unused */ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    /* IRQ 0, 1 unused */ 0, 0, /* IRQ 2 */ RTC_IRQHandler, /* IRQ 3, 4 unused */ 0, 0,
+    /* IRQ 5..7 */ EXTI0_1_IRQHandler, EXTI2_3_IRQHandler, EXTI4_15_IRQHandler,
+    /* IRQ 8..26 unused */ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     /* IRQ 27 */ USART1_IRQHandler, /* IRQ 28..30 unused */ 0,0,0,
     /* IRQ 31 */ USB_IRQHandler,
 };

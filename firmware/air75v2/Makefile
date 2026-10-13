@@ -1,18 +1,19 @@
 # NuPhy V2-generation open firmware (bare metal, TinyUSB). Requires arm-none-eabi-gcc; flash with dfu-util.
 #   make                       Air75 V2   -> build/air75v2/air75v2.bin
 #   make BOARD=halo75v2        Halo75 V2  -> build/halo75v2/halo75v2.bin
+#   make BOARD=air96v2         Air96 V2   -> build/air96v2/air96v2.bin
 BOARD   ?= air75v2
 TARGET  := $(BOARD)
 BUILD   := build/$(BOARD)
-LEDSRC  := $(if $(filter halo75v2,$(BOARD)),src/hw/leds_is31.c,src/hw/leds_ws2812.c)
-USB_PID ?= 0x1028
+LEDSRC  := $(if $(filter halo75v2 air96v2,$(BOARD)),src/hw/leds_is31.c,src/hw/leds_ws2812.c)
+USB_PID ?= $(if $(filter air96v2,$(BOARD)),0x102D,0x1028)    # the Air96 V2 is presented as nuphy.io's Air100 V3 (PID 4141); the others as the Air75 V3 (4136)
 CC      := arm-none-eabi-gcc
 OBJCOPY := arm-none-eabi-objcopy
 SIZE    := arm-none-eabi-size
 
 TUSB := third_party/tinyusb/src
 SRCS := src/main.c src/core/nph_proto.c src/core/keyeng.c src/core/light.c src/core/rf.c src/core/wlstore.c src/core/fnkeys.c \
-        src/hw/startup.c src/hw/board.c src/hw/matrix.c $(LEDSRC) src/hw/store.c src/hw/rfio.c src/usb/usb.c \
+        src/hw/startup.c src/hw/board.c src/hw/matrix.c $(LEDSRC) src/hw/store.c src/hw/rfio.c src/hw/power.c src/usb/usb.c \
         $(TUSB)/tusb.c $(TUSB)/common/tusb_fifo.c $(TUSB)/device/usbd.c $(TUSB)/device/usbd_control.c \
         $(TUSB)/class/hid/hid_device.c $(TUSB)/portable/st/stm32_fsdev/dcd_stm32_fsdev.c
 
@@ -45,9 +46,10 @@ test:
 	cc -std=c11 -Wall -Wextra -O1 -Isrc/boards/air75v2 -o test/light_test test/light_test.c src/core/light.c src/core/nph_proto.c
 	cc -std=c11 -Wall -Wextra -O1 -Isrc/boards/air75v2 -o test/rf_test test/rf_test.c src/core/rf.c
 	cc -std=c11 -Wall -Wextra -O1 -Isrc/boards/halo75v2 -o test/halo_test test/halo_test.c src/core/light.c src/core/nph_proto.c
+	cc -std=c11 -Wall -Wextra -O1 -Isrc/boards/air96v2 -o test/air96_test test/air96_test.c src/core/light.c src/core/keyeng.c src/core/nph_proto.c
 	cc -std=c11 -Wall -Wextra -O1 -Isrc/boards/air75v2 -o test/fn_test test/fn_test.c src/core/fnkeys.c src/core/nph_proto.c
 	cc -std=c11 -Wall -Wextra -O1 -Isrc/boards/air75v2 -o test/wl_test test/wl_test.c src/core/wlstore.c
-	./test/keyeng_test && ./test/light_test && ./test/rf_test && ./test/wl_test && ./test/halo_test && ./test/fn_test && python3 test/replay_v3.py
+	./test/keyeng_test && ./test/light_test && ./test/rf_test && ./test/wl_test && ./test/halo_test && ./test/air96_test && ./test/fn_test && python3 test/replay_v3.py
 
 # End-to-end: the web app's real device client <-> the C protocol core
 e2e: test

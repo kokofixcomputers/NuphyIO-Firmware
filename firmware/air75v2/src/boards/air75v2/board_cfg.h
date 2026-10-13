@@ -12,6 +12,12 @@
 #define BD_BAT_FIRST 0
 #define BD_BAT_COUNT 6      /* side LEDs the battery bar uses */
 #define BD_OS_HIGH_IS_WIN 0
+#define BD_SLOT_COLS 16      /* keymap slots are row * BD_SLOT_COLS + column; reported to the host as the matrix width */
+#define BD_SLOTS 98
+#define BD_KEYMAP_BYTES 1568
+#define BD_V3_KEY_LEDS 84      /* key LEDs in the live LED list the host reads (the accessory's LED is the last one) */
+#define BD_BUTTON_SLOT 60      /* the top-right key (the V2's button / Del) */
+#define BD_BUTTON_IS_MUTE 1      /* nuphy.io's Air75 V3 view only accepts the corner key when its factory default is volume-mute */
 #define BD_NRF_WAKE_PORT 1
 #define BD_NRF_WAKE_PIN 8
 #define BD_NAME "Air75 V2"

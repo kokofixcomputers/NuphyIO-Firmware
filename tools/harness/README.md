@@ -11,3 +11,5 @@ nuphy.io app talks to our firmware code (`cc -shared -fPIC -I ../../firmware/air
 `/poke?w=key|default|appdef|kbfunc` edits the simulated device's data to bisect what nuphy.io checks. Found this way: the corner key is only
 selectable when the factory default (command B1) at slot 60 is volume-mute. The site's "upgrade mode" pop-up is an artifact of the fake device.
 Air Deck can use the same core with `http://localhost:5173/?fw`.
+
+Other boards / models: `./build.sh air96v2` rebuilds `libnph.dylib` from that board's generated data (default `air75v2`), and `proxy.py <usb product name> <port> <pid>` sets the USB product ID the fake keyboard presents - nuphy.io picks its model from the PID (`python3 proxy.py "Air96 V2 (open firmware)" 8767 0x102D` is an Air100 V3).

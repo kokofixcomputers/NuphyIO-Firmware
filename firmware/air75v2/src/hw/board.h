@@ -12,6 +12,9 @@
 void     board_init(void);
 uint32_t millis(void);
 void     delay_us(uint32_t us);        /* <= 1000 */
+void     board_clocks(void);           /* (re)start the PLL / HSI48 clock tree - after stop mode */
+void     board_usb_clocks(bool on);    /* HSI48 + CRS + USB peripheral clock */
+void     board_add_ms(uint32_t ms);    /* credit time that passed while SysTick was stopped */
 void     board_enter_dfu(void);        /* software reset into the ST ROM bootloader */
 bool     board_os_switch_is_mac(void);
 bool     board_device_switch_is_usb(void);

@@ -48,7 +48,7 @@ int main(void) {
     l.bat_charging = true; light_render(&l, 1200, false);
     CHECK(l.side[BD_BAT_FIRST].g > 0 && l.side[BD_BAT_FIRST + 4].g > 0, "a full bar breathes while charging");
     l.bat_on = false;
-    uint8_t snap[312]; light_render(&l, 2000, false); light_v3_snapshot(&l, snap);
+    uint8_t snap[NPH_LED_COUNT_V3 * 3]; light_render(&l, 2000, false); light_v3_snapshot(&l, snap);
     int sidelit = 0; for (int i = 84; i < 104; i++) sidelit += snap[i * 3 + 2] > 0;
     CHECK(sidelit == 20, "V3 snapshot: the ring is sampled into the V3's 2 x 10 side LEDs");
     d.light[0][0] = 3; d.light[0][4] = 0; d.light[0][1] = 100; d.light[0][6] = 255; d.light[0][7] = 255; d.light[0][8] = 255; light_render(&l, 3000, false); light_v3_snapshot(&l, snap);

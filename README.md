@@ -30,6 +30,7 @@ Some NuPhy keyboards can be configured with VIA, but getting started may require
 | Keyboard | Status |
 |---|---|
 | **NuPhy Air75 V2** | In use. Keys, FN layers, remapping, macros, tap dance, mouse keys, lighting (all 20 back-light effects of the V3 and its 5 side effects), sleep, button, mode settings, persistent settings with wear levelling |
+| **NuPhy Air96 V2** | Builds and passes host tests, **not yet tested on hardware**. Generated from NuPhy's official QMK tree (the community tree does not run on this board). nuphy.io sees it as an Air100 V3 (PID 0x102D), so it draws and binds the numpad |
 | **NuPhy Halo75 V2** | Builds and passes host tests, **not yet tested on hardware** (the IS31FL3733 LED driver is the riskiest part). The V3's side light drives the 45-LED halo ring |
 | Others | Planned |
 
@@ -46,7 +47,7 @@ Beyond what the stock configuration offers:
 - **Macro recording on the keyboard:** the keyboard stops typing and reports keys to the app, exactly like nuphy.io.
 - **Key test:** see which key (and which matrix slot) the keyboard reports.
 
-Not done yet: SOCD (stored but not acted on), Globe key, F-row reverse, touch bar.
+Not done yet: Globe key, F-row reverse, touch bar.
 
 ## Quick start
 
@@ -63,6 +64,7 @@ npm run dev        # http://localhost:5173  (add ?demo for a simulated keyboard)
 cd firmware/air75v2
 make                   # Air75 V2  -> build/air75v2/air75v2.bin
 make BOARD=halo75v2    # Halo75 V2 -> build/halo75v2/halo75v2.bin
+make BOARD=air96v2     # Air96 V2  -> build/air96v2/air96v2.bin
 make test              # protocol replay of a real V3 capture, key engine, lighting, radio, flash store, board data
 make e2e               # Air Deck's real device client <-> the firmware's protocol code
 ```

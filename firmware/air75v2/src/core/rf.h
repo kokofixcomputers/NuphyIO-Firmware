@@ -8,6 +8,9 @@
 #define RF_MAX_LEN 64
 #define RF_FUNC_LEN 32
 
+#define RF_POWER_DOWN_DELAY 24      /* argument of the SET_CONFIG sent when going to sleep while connected (the stock firmware's POWER_DOWN_DELAY) */
+#define RF_SYNC_MS 200              /* status poll interval while awake */
+#define RF_SYNC_MS_DIM 500          /* ... and in level-1 sleep (lights off) */
 enum { LINK_RF24 = 0, LINK_BLE1 = 1, LINK_BLE2 = 2, LINK_BLE3 = 3, LINK_USB = 4 };
 enum { RF_IDLE = 0, RF_PAIRING = 1, RF_LINKING = 2, RF_CONNECT = 3, RF_DISCONNECT = 4, RF_SLEEP = 5, RF_SNIF = 6 };
 
@@ -33,6 +36,8 @@ typedef struct {
     uint8_t link_mode, rf_channel, ble_channel;           /* what the keyboard wants */
     uint8_t state, charge, led, battery;                  /* what the radio reports */
     bool    ready;                                        /* init handshake finished */
+    uint16_t sync_ms;                                     /* status poll interval (RF_SYNC_MS unless set by rf_set_poll) */
+    bool    asleep;                                       /* level-2 sleep: the radio was told to sleep, no status polling until rf_wake() */
     bool    cfg_dirty;                                    /* link choice changed: persist it in the nRF once things settle */
     uint32_t t_cfg;
     /* rx */
@@ -57,6 +62,9 @@ void rf_task(rf_t *r, uint32_t now);                       /* call every ms or s
 void rf_set_link(rf_t *r, uint8_t mode);                   /* switch to a channel (0 = 2.4G, 1-3 = BLE, 4 = USB) */
 void rf_pair(rf_t *r, uint8_t mode);                       /* start advertising / pairing on that channel */
 void rf_clear_devices(rf_t *r);
+void rf_set_poll(rf_t *r, uint16_t ms);                    /* status poll interval while awake (0 = default) */
+void rf_sleep(rf_t *r);                                    /* tell the radio to sleep and stop polling it (connected: SET_CONFIG with the power-down delay, else SLEEP) */
+void rf_wake(rf_t *r);                                     /* wake it again (HAND) and resume polling at once */
 bool rf_send_report(rf_t *r, uint8_t cmd, const uint8_t *d, uint8_t n);   /* false if not connected */
 void rf_report_repeat(rf_t *r, uint32_t now);              /* re-send the last key reports while keys are active */
 void rf_report_clear(rf_t *r);

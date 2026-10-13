@@ -139,6 +139,38 @@ int main(void) {
     keyeng_event(&k, 26, false, 45); keyeng_event(&k, 81, false, 46); keyeng_report(&k, &r); keyeng_release_all(&k);
     n.kbfunc[3] = 0; keyeng_set_mode(&k, 0);
 
+    {   /* SOCD: A(slot 49)=0x7F00 / D(slot 51)=0x7F01 as captured from the V3 */
+        static const uint8_t rec[8][8] = {{0,4,1,1,0,7,0,1},{0,4,1,0,0,7,0,0},{0,4,1,1,0,7,0,0},{0,4,1,0,0,7,0,1}};
+        const char *nm[4] = {"last input wins", "neutral", "absolute priority key 1", "absolute priority key 2"};
+        const uint8_t want_both[4] = {0x07, 0x00, 0x04, 0x07};
+        set(&n, 0, 49, 0x7F00); set(&n, 0, 51, 0x7F01);
+        for (int m = 0; m < 4; m++) {
+            char msg[96];
+            memset(n.socd, 0xFF, sizeof n.socd); memcpy(n.socd, m == 0 ? rec[0] : m == 1 ? (const uint8_t[]){0,4,1,0,0,7,0,0} : m == 2 ? (const uint8_t[]){0,4,1,1,0,7,0,0} : (const uint8_t[]){0,4,1,0,0,7,0,1}, 8);
+            keyeng_release_all(&k);
+            keyeng_event(&k, 49, true, 0); keyeng_event(&k, 51, true, 1); keyeng_report(&k, &r);
+            snprintf(msg, sizeof msg, "SOCD %s: both held -> %02x", nm[m], want_both[m]);
+            CHECK(r.keys[0] == want_both[m] && r.keys[1] == 0, msg);
+            keyeng_event(&k, 51, false, 2); keyeng_report(&k, &r);
+            CHECK(r.keys[0] == 0x04 && r.keys[1] == 0, "  ... releasing D leaves A");
+            keyeng_event(&k, 49, false, 3); keyeng_report(&k, &r);
+            CHECK(r.keys[0] == 0, "  ... releasing A clears");
+        }
+        (void)rec;
+        keyeng_release_all(&k);
+    }
+
+    {   /* the active layer (what the board reports as A2[0]) follows MO(n) in both modes */
+        keyeng_release_all(&k); keyeng_set_mode(&k, 0); set(&n, 0, 91, 0x5202);
+        CHECK(keyeng_layer(&k) == 0, "layer: Mac base is 0");
+        keyeng_event(&k, 91, true, 0); CHECK(keyeng_layer(&k) == 2, "layer: holding an MO(2) key reports layer 2");
+        keyeng_event(&k, 91, false, 5); CHECK(keyeng_layer(&k) == 0, "layer: releasing it returns to 0");
+        keyeng_set_mode(&k, 1); set(&n, 4, 91, 0x5206);
+        keyeng_event(&k, 91, true, 10); CHECK(keyeng_layer(&k) == 6, "layer: Windows FN layers are 4..7");
+        keyeng_event(&k, 91, false, 15); CHECK(keyeng_layer(&k) == 4, "layer: Windows base is 4");
+        keyeng_set_mode(&k, 0);
+    }
+
     printf(fails ? "\nKEYENG: %d FAILED\n" : "\nKEYENG: ALL PASS\n", fails);
     return fails != 0;
 }

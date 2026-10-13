@@ -110,7 +110,7 @@ function Session({ entry, active, devices, onSummary, onSelect, onAdd, onRemove 
                 <dt>Build</dt><dd className="mono">{nu.openFw ? `r${nu.openFw.rev} · ${nu.openFw.build.slice(0, 6)}` : "unknown"}</dd>
               </div>
             )}
-            <div><dt>Top right</dt><dd>{nu.accessory === "button" ? "Button" : "Knob"}</dd></div>
+            {nu.model.topRight !== "none" && <div><dt>Top right</dt><dd>{nu.accessory === "button" ? "Button" : "Knob"}</dd></div>}
           </dl>
         </div>
       </aside>

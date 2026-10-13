@@ -7,13 +7,12 @@
 static uint8_t deb_press = 3, deb_release = 5;
 void matrix_set_debounce(uint8_t press_ms, uint8_t release_ms) { deb_press = press_ms ? press_ms : 1; deb_release = release_ms ? release_ms : 1; }
 
-static GPIO_TypeDef *const PORTS[3] = {GPIOA, GPIOB, GPIOC};
+static GPIO_TypeDef *const PORTS[4] = {GPIOA, GPIOB, GPIOC, GPIOD};
 static uint32_t raw[BD_ROWS], state[BD_ROWS];
 static uint8_t  cnt[BD_ROWS][BD_COLS];
 
 static uint32_t read_cols(void) {
-    const uint32_t a = GPIOA->IDR, b = GPIOB->IDR, c = GPIOC->IDR;
-    const uint32_t in[3] = {a, b, c};
+    const uint32_t in[4] = {GPIOA->IDR, GPIOB->IDR, GPIOC->IDR, GPIOD->IDR};
     uint32_t m = 0;
     for (int i = 0; i < BD_COLS; i++)
         if (!((in[BD_COL_PIN[i][0]] >> BD_COL_PIN[i][1]) & 1u)) m |= 1u << i;      /* low = pressed */

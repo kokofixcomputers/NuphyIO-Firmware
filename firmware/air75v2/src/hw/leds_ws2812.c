@@ -4,6 +4,8 @@
  * Side LEDs (12, data on C8): bit-banged against the 48 MHz TIM14 timebase.
  */
 #include "leds.h"
+#include <string.h>
+#include "board.h"
 #include "stm32f0xx.h"
 
 #define KEY_LEDS BD_KEY_LEDS
@@ -12,6 +14,11 @@
 #define KEY_BUF (KEY_LEDS * 9 + RESET_BYTES)
 
 static uint8_t spibuf[KEY_BUF];
+/* A frame identical to the one on the LEDs is not sent again (static effects cost nothing); every second it is refreshed anyway, and after the supply was off. */
+static rgb_t last_keys[KEY_LEDS], last_side[SIDE_LEDS];
+static uint32_t t_keys, t_side;
+static bool fresh_keys = true, fresh_side = true;
+#define REFRESH_MS 1000
 
 static void encode_byte(uint8_t *o, uint8_t v) {
     uint32_t w = 0;
@@ -21,9 +28,20 @@ static void encode_byte(uint8_t *o, uint8_t v) {
 
 void leds_task(void) {}
 
+/* The LED supply comes from a boost converter (C2); C6 / C9 enable the two LED drivers. Off like the stock firmware: boost converter down and the enable
+ * pins released (input, no pull), so nothing drives into the unpowered LED chips. On: boost up, enables driven low. */
 void leds_power(bool on) {
-    if (on) { GPIOC->BSRR = (1u << 2); GPIOC->BSRR = (1u << (6 + 16)) | (1u << (9 + 16)); }
-    else    { GPIOC->BSRR = (1u << (2 + 16)); GPIOC->BSRR = (1u << 6) | (1u << 9); }
+    fresh_keys = fresh_side = true;                                  /* the LEDs lost their state: the next frames are always sent */
+    const uint32_t m = (3u << 12) | (3u << 18);
+    if (on) {
+        GPIOC->BSRR = (1u << 2);
+        GPIOC->BSRR = (1u << (6 + 16)) | (1u << (9 + 16));
+        GPIOC->MODER = (GPIOC->MODER & ~m) | (1u << 12) | (1u << 18);
+    } else {
+        GPIOC->BSRR = (1u << (2 + 16));
+        GPIOC->MODER &= ~m;
+        GPIOC->PUPDR &= ~m;
+    }
 }
 
 void leds_init(void) {
@@ -52,6 +70,8 @@ bool leds_keys_busy(void) {
 
 void leds_show_keys(const rgb_t keys[KEY_LEDS]) {
     if (leds_keys_busy()) return;
+    if (!fresh_keys && millis() - t_keys < REFRESH_MS && !memcmp(last_keys, keys, sizeof last_keys)) return;
+    memcpy(last_keys, keys, sizeof last_keys); fresh_keys = false; t_keys = millis();
     for (int i = 0; i < KEY_LEDS; i++) {                            /* WS2812 expects G, R, B */
         encode_byte(&spibuf[i * 9 + 0], keys[i].g);
         encode_byte(&spibuf[i * 9 + 3], keys[i].r);
@@ -80,6 +100,8 @@ static void side_byte(uint8_t v) {
 }
 
 void leds_show_side(const rgb_t side[SIDE_LEDS]) {
+    if (!fresh_side && millis() - t_side < REFRESH_MS && !memcmp(last_side, side, sizeof last_side)) return;
+    memcpy(last_side, side, sizeof last_side); fresh_side = false; t_side = millis();
     __disable_irq();
     for (int i = 0; i < SIDE_LEDS; i++) { side_byte(side[i].g); side_byte(side[i].r); side_byte(side[i].b); }
     __enable_irq();

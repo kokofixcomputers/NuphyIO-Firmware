@@ -9,6 +9,8 @@
 #include "usb.h"
 #include <string.h>
 #include "tusb.h"
+#include "device/dcd.h"
+#include "stm32f0xx.h"
 #include "board.h"
 #include "board_cfg.h"
 
@@ -125,6 +127,32 @@ void usb_send_raw(const uint8_t *frame, uint8_t len) {                /* an unso
 void usb_send(const ke_report_t *r) { want = *r; want_dirty = true; }
 uint8_t usb_leds(void) { return leds_from_host; }
 bool usb_mounted(void) { return tud_mounted(); }
+bool usb_suspended(void) { return tud_suspended(); }
+bool usb_remote_wakeup(void) { return tud_remote_wakeup(); }
+static volatile bool resumed;
+void tud_resume_cb(void) { resumed = true; }
+bool usb_take_resume(void) { const bool r = resumed; resumed = false; return r; }
+
+static bool usb_on = true;
+void usb_enable(bool on) {
+    if (on == usb_on) return;
+    usb_on = on;
+    if (!on) {
+        USB->BCDR &= ~USB_BCDR_DPPU;                                       /* detach: the host sees the keyboard unplugged */
+        dcd_event_bus_signal(0, DCD_EVENT_UNPLUGGED, false);                /* the stack forgets the session */
+        tud_task();
+        NVIC_DisableIRQ(USB_IRQn);
+        USB->CNTR = USB_CNTR_FRES | USB_CNTR_PDWN;                          /* analog front end off */
+        board_usb_clocks(false);
+        resumed = false;
+    } else {
+        board_usb_clocks(true);
+        q_head = q_tail = 0; mq_head = mq_tail = 0; memset(&sent, 0, sizeof sent); want_dirty = true;
+        dcd_init(0, NULL);                                                  /* resets the peripheral and attaches (pull-up) */
+        NVIC_EnableIRQ(USB_IRQn);
+    }
+}
+
 void USB_IRQHandler(void) { tud_int_handler(0); }
 uint32_t tusb_time_millis_api(void) { return millis(); }
 

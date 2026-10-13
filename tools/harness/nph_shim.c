@@ -11,5 +11,5 @@ void sim_poke_keymap(int layer, int slot, int entry) { dev.keymap[(layer * NPH_S
 void sim_poke_appdef(int off, int v) { dev.appdef[off] = (uint8_t)v; }
 void sim_poke_kbfunc(int off, int v) { dev.kbfunc[off] = (uint8_t)v; }
 
-extern uint8_t sim_defkeys[1568];
+extern uint8_t sim_defkeys[];
 void sim_poke_default(int layer, int slot, int entry) { sim_defkeys[(layer * NPH_SLOTS + slot) * 2] = (uint8_t)(entry >> 8); sim_defkeys[(layer * NPH_SLOTS + slot) * 2 + 1] = (uint8_t)entry; }

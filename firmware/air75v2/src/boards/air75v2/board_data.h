@@ -6,7 +6,7 @@
 static const uint8_t BD_ROW_PIN[BD_ROWS][2] = {{2,14}, {2,15}, {0,0}, {0,1}, {0,2}, {0,3}};
 static const uint8_t BD_COL_PIN[BD_COLS][2] = {{0,4}, {0,5}, {0,6}, {1,9}, {1,0}, {1,1}, {1,10}, {1,11}, {1,12}, {1,13}, {1,14}, {1,15}, {0,8}, {0,9}, {0,10}, {0,15}, {1,3}};
 
-/* matrix (row, col) -> V3 keymap slot (row*16+col style numbering used by the V3 protocol); 0xFF = no key */
+/* matrix (row, col) -> keymap slot on the wire; 0xFF = no key */
 static const uint8_t BD_SLOT[6][17] = {
     {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0xFF, 0x3C, 0x0E, 0xFF},
     {0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0xFF, 0x3F, 0x1F},
@@ -16,15 +16,19 @@ static const uint8_t BD_SLOT[6][17] = {
     {0x50, 0x51, 0x52, 0xFF, 0xFF, 0xFF, 0x56, 0xFF, 0xFF, 0x5A, 0x5B, 0xFF, 0xFF, 0x5D, 0x5E, 0x5F, 0xFF},
 };
 
-/* LED chain index (wiring order) -> V3 slot. The V3 protocol reports LEDs in ascending slot order. */
+/* LED chain index (wiring order) -> keymap slot on the wire */
 static const uint8_t BD_LED_SLOT[BD_KEY_LEDS] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 60, 31, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 47, 63, 61, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 64, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 78, 79, 95, 94, 93, 92, 91, 90, 86, 82, 81, 80};
+/* LED chain index -> the Air75 V3 key whose lighting this key copies (effect model); 0xFF = none, borrow the nearest key */
+static const uint8_t BD_LED_V3[BD_KEY_LEDS] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 60, 31, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 47, 63, 61, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 64, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 78, 79, 95, 94, 93, 92, 91, 90, 86, 82, 81, 80};
+/* LED chain index -> position in the live LED list the host reads (command D2); 0xFF = not in the list */
+static const uint8_t BD_LED_SNAP[BD_KEY_LEDS] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 83, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73};
 
 /* LED chain index -> physical position, in QMK's 0..224 x 0..64 units (for spatial effects) */
 static const uint8_t BD_LED_X[BD_KEY_LEDS] = {0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 150, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 0, 15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115, 125, 135, 150, 150, 128, 118, 108, 98, 88, 78, 68, 58, 48, 38, 28, 18, 0, 0, 23, 33, 43, 53, 63, 73, 83, 93, 103, 113, 123, 140, 150, 150, 140, 130, 120, 110, 100, 38, 25, 13, 0};
 static const uint8_t BD_LED_Y[BD_KEY_LEDS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50};
 
-/* default keymap image: 8 layers x 98 slots, big-endian 16-bit entries (V3 layout) */
-static const uint8_t BD_DEFAULT_KEYMAP[1568] = {
+/* default keymap image: 8 layers x BD_SLOTS slots, big-endian 16-bit entries */
+static const uint8_t BD_DEFAULT_KEYMAP[BD_KEYMAP_BYTES] = {
     0x00, 0x29, 0x00, 0x69, 0x00, 0x6A, 0x7E, 0x06, 0x7E, 0x07, 0x7E, 0x08, 0x7E, 0x16, 0x00, 0xAC,
     0x00, 0xAE, 0x00, 0xAB, 0x00, 0xA8, 0x00, 0xAA, 0x00, 0xA9, 0x7E, 0x0B, 0x00, 0x49, 0x00, 0x00,
     0x00, 0x35, 0x00, 0x1E, 0x00, 0x1F, 0x00, 0x20, 0x00, 0x21, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,

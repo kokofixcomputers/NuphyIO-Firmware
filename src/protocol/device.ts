@@ -1,7 +1,7 @@
 import { hexDump } from "./cipher";
 import { CMD, FRAME_LEN, IN_FLAG, MAX_DATA, Parsed, buildFrame, buildHandshake, parseFrame } from "./frames";
 import { EMPTY_TD, EMPTY_TGL, TD_BYTES, TD_SLOTS, TGL_BYTES, TGL_SLOTS, TapDance, encodeTapDance, encodeTgl } from "./advanced";
-import { KEYMAP_BYTES, keyAddr } from "./keymap";
+import { keyAddr, keymapBytes, setMatrixCols } from "./keymap";
 import { BACK_ADDR, BackLight, LED_BYTES, LIGHT_BYTES, LightState, SIDE_ADDR, SideLight, backBytes, parseLightState, sideBytes } from "./lighting";
 import { MACRO_LIMIT, MacroEvent, replaceMacro } from "./macro";
 
@@ -10,7 +10,7 @@ import { MACRO_LIMIT, MacroEvent, replaceMacro } from "./macro";
 export const NUPHY_VID = 0x19f5;
 export const NUPHY_PID = 0x1028;
 /** The open Air75 V2 firmware can present either its own ID (0x3246) or the V3's. */
-export const NUPHY_PIDS = [0x1028, 0x3246];
+export const NUPHY_PIDS = [0x1028, 0x102d, 0x3246];      // 0x102D = nuphy.io's Air100 V3, which the Air96 V2 firmware presents
 
 const LED_CHUNK = 54; // chunk size the official app uses when polling LED colours
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -18,6 +18,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export interface DeviceEvents {
   log?: (dir: "tx" | "rx" | "info" | "warn", msg: string) => void;
   disconnect?: () => void; // user-initiated or unrecoverable
+  reset?: () => void; // restore-factory finished (unsolicited report F2): everything must be read again
   mode?: (mode: 0 | 1) => void; // the OS slide switch moved (unsolicited report A2: [base layer 0|4, mode 0|1])
   lightChanged?: (state: Uint8Array) => void; // unsolicited D7 + 17-byte light state of the active profile (sent after a mode switch / FN lighting keys)
   lost?: () => void; // the device vanished unexpectedly (e.g. the keyboard restarted); call reconnect()
@@ -33,6 +34,7 @@ export interface ModeSettings { stabilization: number; disableWin: boolean; disa
 export interface SleepCfg { enabled: boolean; level1: number; level2: number; reserved: number }
 
 export class NuPhyDevice {
+  private lastMode: 0 | 1 = 0;
   private hid: HIDDevice | null = null;
   private k = 0;
   private chain: Promise<unknown> = Promise.resolve();
@@ -77,6 +79,8 @@ export class NuPhyDevice {
 
     const base = await this.read(CMD.GET_BASE, 0, 8);
     const firmware = await this.read(CMD.GET_FIRMWARE, 0, 8);
+    this.lastMode = base[0] === 1 ? 1 : 0;
+    setMatrixCols(base[4]);                                 // the keymap is 6 * width + 2 slots per layer
     this.ev.log?.("info", `base=${hexDump(base)} firmware=${hexDump(firmware)}`);
     return { k, base, firmware };
   }
@@ -131,7 +135,12 @@ export class NuPhyDevice {
   private handleInput(e: HIDInputReportEvent) {
     const f = new Uint8Array(e.data.buffer, e.data.byteOffset, Math.min(e.data.byteLength, FRAME_LEN));
     if (f[0] === CMD.SET_KEY_UPLOAD) { this.keyUpload?.(f[1] * 16 + f[2], f[3] !== 0); return; }   // macro recording: unframed [C1, row, col, pressed]
-    if (f[0] === 0xa2) { this.ev.mode?.(f[2] === 1 ? 1 : 0); return; }
+    if (f[0] === 0xa2) {                                       // [A2, layer, mode]: sent on a mode switch and whenever the active FN layer changes
+      const m = f[2] === 1 ? 1 : 0;
+      if (m !== this.lastMode) { this.lastMode = m; this.ev.mode?.(m); }
+      return;
+    }
+    if (f[0] === 0xf2) { this.ev.reset?.(); return; }          // the keyboard was reset to factory settings
     if (f[0] === 0xd7) { this.ev.lightChanged?.(f.slice(1, 18)); return; }
     if (f[0] !== IN_FLAG) return;
     const p = this.pending;
@@ -252,7 +261,7 @@ export class NuPhyDevice {
 
   // ---------- keymap ----------
 
-  readKeymap() { return this.read(CMD.GET_KEYS, 0, KEYMAP_BYTES); }
+  readKeymap() { return this.read(CMD.GET_KEYS, 0, keymapBytes()); }
 
   /** Write one 16-bit entry (big-endian) and return what the keyboard reads back. */
   async writeKey(layer: number, slot: number, entry: number): Promise<number> {

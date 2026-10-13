@@ -1,6 +1,6 @@
 /*
  * Halo75 V2 LEDs: two IS31FL3733 matrix drivers (12 x 16 dots each) on I2C1 (SCL = B8, SDA = B9), chip addresses 0x50 and 0x53, enabled by
- * SDB1 = C6 / SDB2 = C7. 83 key LEDs followed by the 45-LED halo ring share the two chips (the wiring is generated into board_data.h from
+ * SDB1 = C6 / SDB2 = C7. the key LEDs followed by the side LEDs (Halo75: 83 + 45 halo ring, Air96: 100 + 2 x 5) share the two chips (the wiring is generated into board_data.h from
  * QMK's g_is31fl3733_leds table). Each chip's 192 PWM registers (page 1) are refreshed with one DMA-driven I2C write; the chip keeps
  * register page 1 selected, so a frame is a single 193-byte transfer per chip and never blocks the key scan.
  */
@@ -11,7 +11,6 @@
 
 #define CHIPS 2
 #define PWM_BYTES 192
-#define LED_COUNT (BD_KEY_LEDS + BD_SIDE_LEDS)
 static const uint8_t ADDR[CHIPS] = {0x50, 0x53};          /* 7-bit: AD pins GND/GND and GND/VCC */
 
 static uint8_t pwm[CHIPS][1 + PWM_BYTES];                 /* [0] = start register (0), then the 192 PWM registers */

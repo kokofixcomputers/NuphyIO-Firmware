@@ -21,6 +21,12 @@ static uint16_t resolve(const keyeng_t *k, uint8_t slot) {
     return e == E_TRANS ? E_NONE : e;
 }
 
+uint8_t keyeng_layer(const keyeng_t *k) {
+    const uint8_t base = k->mode ? 4 : 0;
+    for (int l = NPH_LAYERS - 1; l > base; l--) if (k->layer_cnt[l]) return (uint8_t)l;
+    return base;
+}
+
 uint16_t keyeng_usage_to_consumer(uint8_t u) {
     switch (u) {
         case 0xA8: return 0x00E2; case 0xA9: return 0x00E9; case 0xAA: return 0x00EA;   /* mute, vol+, vol- */
@@ -177,9 +183,39 @@ static uint16_t tgl_load(const keyeng_t *k, uint8_t idx) {
     return v == 0xFFFF ? 0 : v;
 }
 
+/* SOCD pair p: record at socd[p*8] = [key1 hi, key1 lo, -, prio1, key2 hi, key2 lo, -, prio2]; priority bits (prio1, prio2):
+ * (1,1) last input wins, (0,0) neutral (neither is sent), (1,0) key 1 always wins, (0,1) key 2 always wins. */
+static void socd_update(keyeng_t *k, uint8_t p) {
+    const uint8_t *r = &k->nph->socd[p * 8];
+    const bool h0 = k->socd_held[p][0], h1 = k->socd_held[p][1];
+    bool want[2] = {h0, h1};
+    if (h0 && h1) {
+        const uint8_t b1 = r[3] & 1, b2 = r[7] & 1;
+        if (b1 && b2) { want[0] = k->socd_last[p] == 0; want[1] = !want[0]; }
+        else if (!b1 && !b2) want[0] = want[1] = false;
+        else { want[0] = b1; want[1] = b2; }
+    }
+    for (int i = 0; i < 2; i++) {
+        if (want[i] == k->socd_out[p][i]) continue;
+        k->socd_out[p][i] = want[i];
+        const uint8_t hi = r[i * 4], lo = r[i * 4 + 1];
+        if (hi != 0 || lo == 0) continue;
+        if (want[i]) usage_down(k, lo); else usage_up(k, lo);
+    }
+}
+
+static void socd_event(keyeng_t *k, uint8_t idx, bool down) {
+    const uint8_t p = idx >> 1, side = idx & 1;
+    if (p >= 32) return;
+    k->socd_held[p][side] = down;
+    if (down) k->socd_last[p] = side;
+    socd_update(k, p);
+}
+
 static void advanced_press(keyeng_t *k, uint8_t slot, uint32_t now) {
     ke_slot_t *s = &k->slot[slot];
     const uint8_t lo = s->entry & 0xFF;
+    if (lo < 64) { socd_event(k, lo, true); return; }
     if (lo >= 64 && lo < 128) {
         if (s->state == TD_WAIT2) { s->state = TD_DOUBLE; uint16_t kc[3], term; td_load(k, lo - 64, kc, &term); if (kc[1]) usage_down(k, (uint8_t)kc[1]); return; }
         s->state = TD_PRESSED; s->t = now;
@@ -191,6 +227,7 @@ static void advanced_press(keyeng_t *k, uint8_t slot, uint32_t now) {
 static void advanced_release(keyeng_t *k, uint8_t slot, uint32_t now) {
     ke_slot_t *s = &k->slot[slot];
     const uint8_t lo = s->entry & 0xFF;
+    if (lo < 64) { socd_event(k, lo, false); return; }
     if (lo >= 64 && lo < 128) {
         uint16_t kc[3], term; td_load(k, lo - 64, kc, &term);
         if (s->state == TD_PRESSED) { s->state = TD_WAIT2; s->t_rel = now; }                 /* quick tap: wait for a second */
@@ -213,6 +250,7 @@ void keyeng_init(keyeng_t *k, nph_t *n) { memset(k, 0, sizeof *k); k->nph = n; }
 void keyeng_release_all(keyeng_t *k) {
     memset(k->ucnt, 0, sizeof k->ucnt); k->order_n = 0; k->cons_cnt_usage = 0; k->sys_usage = 0;
     memset(k->layer_cnt, 0, sizeof k->layer_cnt); memset(k->slot, 0, sizeof k->slot);
+    memset(k->socd_held, 0, sizeof k->socd_held); memset(k->socd_out, 0, sizeof k->socd_out);
     k->mac_active = false; k->mac_down_n = 0; k->dirty = true;
 }
 

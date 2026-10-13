@@ -138,13 +138,13 @@ bool nph_handle(nph_t *s, const uint8_t in[NPH_FRAME], uint8_t out[NPH_FRAME]) {
     switch (cmd) {
         case NPH_GET_BASE: {
             /* [0] = active profile (OS slide switch); the rest is the V3's identity block, kept verbatim */
-            const uint8_t base[8] = {0x00, 0x08, 0x04, 0x06, 0x10, 0x82, 0x00, 0x00};
+            const uint8_t base[8] = {0x00, 0x08, 0x04, 0x06, NPH_SLOT_COLS, NPH_SLOT_COLS == 16 ? 0x82 : 0x00, 0x00, 0x00};   /* [4] = matrix width: the host sizes the keymap from it */
             memcpy(plain, base, 8);
             plain[0] = s->hooks.current_mode ? s->hooks.current_mode() & 1 : 0;
             break;
         }
         case NPH_GET_LIGHT_COUNT:
-            plain[0] = 104;     /* the V3 reports 84 key + 20 side LEDs; we synthesise 20 side entries from our 12 */
+            plain[0] = NPH_LED_COUNT_V3;     /* the V3 reports its key LEDs + 20 side LEDs; we synthesise the 20 side entries from our own */
             break;
         case NPH_GET_LED_COLOR:
             if (s->hooks.led_read) s->hooks.led_read(addr, plain, n);
@@ -162,8 +162,10 @@ bool nph_handle(nph_t *s, const uint8_t in[NPH_FRAME], uint8_t out[NPH_FRAME]) {
             region_t r;
             if (!region_for(s, cmd, handle, &r)) return false;   /* unknown command: stay silent */
             for (uint8_t i = 0; i < n; i++) plain[i] = (addr + i < r.size) ? r.data[addr + i] : 0;
+#ifdef BD_BUTTON_IS_MUTE
             if (cmd == NPH_GET_DEFAULT_KEYS)        /* nuphy.io only treats the knob / button position (slot 60) as a bindable key if its factory default is volume-mute, as on the V3 */
                 for (uint8_t i = 0; i < n; i++) { const uint16_t o = (uint16_t)((addr + i) % (NPH_SLOTS * 2)); if (o == 60 * 2) plain[i] = 0x00; else if (o == 60 * 2 + 1) plain[i] = 0xA8; }
+#endif
         }
     }
     for (uint8_t i = 0; i < n; i++) out[NPH_DATA_OFF + i] = plain[i] ^ K;

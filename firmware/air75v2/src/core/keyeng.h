@@ -40,6 +40,8 @@ typedef struct {
     bool       mac_active;
     uint8_t    mac_down[16], mac_down_n;   /* usages the macro currently holds */
     bool       tgl_on[64];
+    bool       socd_held[32][2], socd_out[32][2];   /* per SOCD pair: key physically held / usage currently sent */
+    uint8_t    socd_last[32];                       /* side (0/1) pressed most recently */
     bool       dirty;
     void     (*fn_cb)(void *ctx, uint16_t entry, bool pressed);   /* firmware functions (0x7Exx / 0x78xx): radio, brightness, ... */
     void      *fn_ctx;
@@ -51,4 +53,5 @@ void keyeng_event(keyeng_t *k, uint8_t slot, bool pressed, uint32_t now);
 void keyeng_tick(keyeng_t *k, uint32_t now);
 void keyeng_release_all(keyeng_t *k);
 bool keyeng_report(keyeng_t *k, ke_report_t *out);   /* true if the report changed since the last call */
+uint8_t keyeng_layer(const keyeng_t *k);           /* active layer index: FN0..FN3 -> 0..3 in Mac mode, 4..7 in Windows mode (what the V3 reports in A2) */
 uint16_t keyeng_usage_to_consumer(uint8_t usage);    /* QMK-numbered media keys 0xA8.. -> HID consumer usage (0 = none) */

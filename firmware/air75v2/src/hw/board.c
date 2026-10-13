@@ -20,7 +20,7 @@ void board_enter_dfu(void) {
     NVIC_SystemReset();
 }
 
-static GPIO_TypeDef *const PORTS[3] = {GPIOA, GPIOB, GPIOC};
+static GPIO_TypeDef *const PORTS[4] = {GPIOA, GPIOB, GPIOC, GPIOD};
 static inline void gpio_out(int port, int pin, int level) {
     GPIO_TypeDef *g = PORTS[port];
     g->MODER = (g->MODER & ~(3u << (pin * 2))) | (1u << (pin * 2));
@@ -37,7 +37,28 @@ bool board_device_switch_is_usb(void) { return (GPIOC->IDR >> 0) & 1; }      /* 
 
 void board_uid(uint8_t out[12]) { for (int i = 0; i < 12; i++) out[i] = *(volatile uint8_t *)(0x1FFFF7ACu + i); }
 
-void board_init(void) {
+void board_add_ms(uint32_t ms) { ticks += ms; }
+
+/* The crystal-less USB clock: HSI48 trimmed against the host's SOF by the CRS. Off while the keyboard is on a wireless link (it saves the oscillator's current). */
+static bool usb_clk_on = true;
+void board_usb_clocks(bool on) {
+    usb_clk_on = on;
+    if (on) {
+        RCC->CR2 |= RCC_CR2_HSI48ON;
+        while (!(RCC->CR2 & RCC_CR2_HSI48RDY)) {}
+        RCC->CFGR3 &= ~RCC_CFGR3_USBSW;
+        RCC->APB1ENR |= RCC_APB1ENR_CRSEN | RCC_APB1ENR_USBEN;
+        CRS->CFGR = (CRS->CFGR & ~CRS_CFGR_SYNCSRC) | CRS_CFGR_SYNCSRC_1;   /* sync source = USB SOF */
+        CRS->CR |= CRS_CR_AUTOTRIMEN | CRS_CR_CEN;
+    } else {
+        CRS->CR &= ~(CRS_CR_AUTOTRIMEN | CRS_CR_CEN);
+        RCC->APB1ENR &= ~(RCC_APB1ENR_CRSEN | RCC_APB1ENR_USBEN);
+        RCC->CR2 &= ~RCC_CR2_HSI48ON;
+    }
+}
+
+/* Clock tree: 48 MHz from the PLL (HSI/2 x 12) and the crystal-less USB clock. Stop mode drops the PLL and HSI48, so power.c calls this again on wake. */
+void board_clocks(void) {
     /* 48 MHz from the PLL (HSI/2 x 12), one flash wait state with prefetch */
     FLASH->ACR = FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY;
     RCC->CFGR = (RCC->CFGR & ~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLMUL)) | RCC_CFGR_PLLSRC_HSI_DIV2 | RCC_CFGR_PLLMUL12;
@@ -46,15 +67,14 @@ void board_init(void) {
     RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_PLL;
     while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL) {}
 
-    /* crystal-less USB: HSI48 trimmed against the host's SOF by the CRS */
-    RCC->CR2 |= RCC_CR2_HSI48ON;
-    while (!(RCC->CR2 & RCC_CR2_HSI48RDY)) {}
-    RCC->CFGR3 &= ~RCC_CFGR3_USBSW;
-    RCC->APB1ENR |= RCC_APB1ENR_CRSEN | RCC_APB1ENR_USBEN | RCC_APB1ENR_TIM14EN;
-    CRS->CFGR = (CRS->CFGR & ~CRS_CFGR_SYNCSRC) | CRS_CFGR_SYNCSRC_1;       /* sync source = USB SOF */
-    CRS->CR |= CRS_CR_AUTOTRIMEN | CRS_CR_CEN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM14EN;
+    if (usb_clk_on) board_usb_clocks(true);
+}
 
-    RCC->AHBENR |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_DMAEN;
+void board_init(void) {
+    board_clocks();
+
+    RCC->AHBENR |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIODEN | RCC_AHBENR_DMAEN;
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
 
     /* free-running 48 MHz timebase for microsecond delays and LED bit timing */

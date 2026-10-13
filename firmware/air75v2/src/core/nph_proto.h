@@ -10,6 +10,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+#include "board_cfg.h"
 
 #define NPH_FRAME      64
 #define NPH_DATA_OFF   8
@@ -34,7 +35,8 @@ enum {
 
 /* region geometry */
 #define NPH_LAYERS        8
-#define NPH_SLOTS         98                       /* per layer (V3 layout; slots 96/97 = knob turns) */
+#define NPH_SLOT_COLS     BD_SLOT_COLS             /* a key's slot is row * cols + col; the host learns the width from command A0 and sizes the keymap as 6 * cols + 2 slots per layer */
+#define NPH_SLOTS         BD_SLOTS                 /* per layer (V3 Air75: 98, slots 96/97 = knob turns; Air100 V3 view: 128) */
 #define NPH_KEYMAP_BYTES  (NPH_LAYERS * NPH_SLOTS * 2)
 #define NPH_MACRO_BYTES   2048
 #define NPH_TD_SLOTS      64
@@ -50,7 +52,7 @@ enum {
 #define NPH_FW_BAT_STRIP  1    /* 1 = left side light shows the battery (FN+\ toggles); the right one stays under software control */
 #define NPH_FW_BRIGHT_REV 3    /* 1 once the saved brightness has been converted to the 43 %-is-100 % scale */
 #define NPH_FW_SIDE_PREV  2    /* side brightness remembered while the side light is switched off with FN2+/ */
-#define NPH_LED_COUNT_V3  104                      /* what the V3 app expects: 84 key LEDs + 20 side LEDs */
+#define NPH_LED_COUNT_V3  (BD_V3_KEY_LEDS + 20)       /* what the host app expects: its key LEDs (V3 Air75: 84, Air100 V3: 99) + 20 side LEDs */
 
 /* settings segments, in the order the flash store saves them (see wlstore.h) */
 enum { NPH_R_KEYMAP = 0, NPH_R_MACRO, NPH_R_LIGHT, NPH_R_TD, NPH_R_TGL, NPH_R_SOCD, NPH_R_KBFUNC, NPH_R_SLEEP, NPH_R_APPDEF, NPH_R_FW, NPH_R_COUNT };

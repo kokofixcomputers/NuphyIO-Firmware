@@ -3,6 +3,7 @@ import { ConnectInfo, NuPhyDevice, StoreStatus } from "./protocol/device";
 import { LightState, parseLightState } from "./protocol/lighting";
 import { Accessory } from "./layout";
 import { KbModel, identify } from "./protocol/model";
+import { keyAddr } from "./protocol/keymap";
 
 export interface LogLine { t: number; dir: "tx" | "rx" | "info" | "warn"; msg: string }
 export interface Toast { id: number; kind: "ok" | "error" | "info"; msg: string }
@@ -48,6 +49,19 @@ export function useNuphy() {
       mode: (m) => {
         activeRef.current = m; setActiveMode(m); setLightMode(m);
         toast("info", m === 1 ? "Keyboard switched to Windows mode" : "Keyboard switched to Mac mode");
+      },
+      reset: () => {
+        toast("info", "Keyboard reset to factory settings");
+        const d = devRef.current;
+        if (!d) return;
+        void (async () => {
+          try {
+            setKeymap(await d.readKeymap());
+            setLight(await d.readLight(activeRef.current));
+            setMacros(await d.readMacroRegion());
+            setAccessoryState(await d.readAccessory().catch(() => "knob" as const));
+          } catch (e) { push("warn", `re-read after reset failed: ${e instanceof Error ? e.message : String(e)}`); }
+        })();
       },
       lightChanged: (bytes) => { if (lightModeRef.current === activeRef.current) setLight(parseLightState(bytes)); },
       disconnect: () => {
@@ -108,8 +122,9 @@ export function useNuphy() {
     setKeymap((m) => {
       if (!m) return m;
       const next = new Uint8Array(m);
-      next[layer * 196 + slot * 2] = entry >> 8;
-      next[layer * 196 + slot * 2 + 1] = entry & 0xff;
+      const a = keyAddr(layer, slot);
+      next[a] = entry >> 8;
+      next[a + 1] = entry & 0xff;
       return next;
     });
   }, []);

@@ -5,7 +5,7 @@ import { IconBoardGeneric, IconBoardHalo, IconBoardV2, IconBoardV3, IconChevron,
 
 export interface DeviceSummary { id: number; name: string; model: ModelId; status: Status; detail?: string }
 
-const ICONS: Record<ModelId, ComponentType> = { air75v2: IconBoardV2, halo75v2: IconBoardHalo, air75v3: IconBoardV3, unknown: IconBoardGeneric };
+const ICONS: Record<ModelId, ComponentType> = { air75v2: IconBoardV2, halo75v2: IconBoardHalo, air96v2: IconBoardV2, air75v3: IconBoardV3, unknown: IconBoardGeneric };
 const STATUS_TEXT: Record<Status, string> = { idle: "Not connected", connecting: "Connecting…", connected: "Connected", reconnecting: "Reconnecting…", error: "Connection failed" };
 
 /** Custom keyboard picker (not a native <select>, so it can carry icons, status and per-keyboard actions). */

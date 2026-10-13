@@ -4,6 +4,7 @@ import { LAYERS, describeEntry, entryAt, setLabelOS } from "../protocol/keymap";
 import { ModeSettings, SleepCfg, StoreStatus } from "../protocol/device";
 import { Nuphy } from "../useNuphy";
 import KeyboardView from "./KeyboardView";
+import { layoutFor } from "../layout";
 import KeyPicker from "./KeyPicker";
 import { keyIcon } from "./keyIcons";
 import { Card, Segmented, Slider } from "./ui";
@@ -217,7 +218,8 @@ export default function AdvancedPanel({ nu }: { nu: Nuphy }) {
           }
         >
           <KeyboardView
-            accessory={nu.accessory}
+            layout={layoutFor(nu.model.numpad)}
+            accessory={nu.model.topRight === "none" ? undefined : nu.accessory}
             selected={target}
             onSelect={setTarget}
             label={(s) => describeEntry(map ? entryAt(map, layer, s) : 0)}

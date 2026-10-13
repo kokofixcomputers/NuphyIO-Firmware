@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { accessorySlot, ledSlots } from "../layout";
+import { accessorySlot, layoutFor, ledSlots, ledSlots96 } from "../layout";
 import { describeEntry, entryAt } from "../protocol/keymap";
 import { BACK_EFFECTS, BackLight, EffectInfo, SIDE_EFFECTS, SideLight } from "../protocol/lighting";
 import { Nuphy } from "../useNuphy";
@@ -84,7 +84,7 @@ export default function LightingPanel({ nu }: { nu: Nuphy }) {
     return () => { nu.stopPolling(); };
   }, [rate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const slotToLed = useMemo(() => new Map(ledSlots(accessorySlot(nu.accessory)).map((s, i) => [s, i])), [nu.accessory]);
+  const slotToLed = useMemo(() => new Map((nu.model.numpad ? ledSlots96() : ledSlots(nu.model.topRight === "none" ? null : accessorySlot(nu.accessory))).map((s, i) => [s, i])), [nu.accessory, nu.model.topRight]);
   const colorFor = (slot: number) => {
     const i = slotToLed.get(slot);
     if (!nu.leds || i === undefined) return undefined;
@@ -112,7 +112,7 @@ export default function LightingPanel({ nu }: { nu: Nuphy }) {
         title="Live preview"
         aside={<span className={`live ${nu.polling && nu.leds ? "on" : ""}`}><i /> {nu.polling && nu.leds ? "Live from keyboard" : "Connecting…"}</span>}
       >
-        <KeyboardView color={colorFor} label={(s) => (nu.keymap ? describeEntry(entryAt(nu.keymap, 0, s)) : "")} className="preview-kb" />
+        <KeyboardView layout={layoutFor(nu.model.numpad)} color={colorFor} label={(s) => (nu.keymap ? describeEntry(entryAt(nu.keymap, 0, s)) : "")} className="preview-kb" />
         {sideSwatch.length > 0 && (
           <div className="side-strip" title="The 20 side LEDs, in order">
             {sideSwatch.map((c, i) => <i key={i} style={{ background: c, boxShadow: `0 0 12px -2px ${c}` }} />)}

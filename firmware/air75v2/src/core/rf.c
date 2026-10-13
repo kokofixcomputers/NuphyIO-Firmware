@@ -43,7 +43,7 @@ void rf_init(rf_t *r, const rf_hooks_t *h, const char *ble_name, const char *don
     memset(r, 0, sizeof *r);
     r->h = *h; r->ble_name = ble_name; r->dongle_name = dongle_name;
     r->link_mode = LINK_USB; r->rf_channel = LINK_BLE1; r->ble_channel = LINK_BLE1;
-    r->battery = 100; r->state = RF_IDLE;
+    r->battery = 100; r->state = RF_IDLE; r->sync_ms = RF_SYNC_MS;
 }
 
 void rf_rx_byte(rf_t *r, uint8_t b, uint32_t now) {
@@ -93,6 +93,8 @@ void rf_task(rf_t *r, uint32_t now) {
     r->now = now;
     if (r->rx_n && now - r->rx_t >= 2) { process(r); r->rx_n = 0; }
 
+    if (r->asleep) return;                             /* sleeping: the radio is not polled */
+
     if (!r->ready) {                                   /* handshake: hand -> read config -> sync -> names */
         if (now < r->t_next) return;
         r->t_next = now + 25;
@@ -107,7 +109,7 @@ void rf_task(rf_t *r, uint32_t now) {
         return;
     }
 
-    if (now - r->t_sync >= 200) {                      /* status sync */
+    if (now - r->t_sync >= r->sync_ms) {               /* status sync */
         r->t_sync = now;
         if (r->need_link) { r->need_link = false; r->state = RF_LINKING; cmd_mode(r, RFC_SET_LINK); }
         cmd_mode(r, RFC_STS_SYNC);
@@ -117,6 +119,22 @@ void rf_task(rf_t *r, uint32_t now) {
         }
     }
     if (r->cfg_dirty && now - r->t_cfg > 2000) { r->cfg_dirty = false; send_write_data(r); }
+}
+
+void rf_set_poll(rf_t *r, uint16_t ms) { r->sync_ms = ms ? ms : RF_SYNC_MS; }
+
+void rf_sleep(rf_t *r) {
+    if (!r->ready || r->asleep) return;
+    if (r->state == RF_CONNECT) { const uint8_t d[1] = {RF_POWER_DOWN_DELAY}; frame(r, RFC_SET_CONFIG, 0, d, 1, RF_POWER_DOWN_DELAY); }
+    else cmd_simple(r, RFC_SLEEP);
+    r->asleep = true;
+}
+
+void rf_wake(rf_t *r) {
+    if (!r->asleep) return;
+    r->asleep = false;
+    cmd_simple(r, RFC_HAND);
+    r->sync_lost = 0; r->t_sync = 0;                   /* poll straight away */
 }
 
 void rf_set_link(rf_t *r, uint8_t mode) {

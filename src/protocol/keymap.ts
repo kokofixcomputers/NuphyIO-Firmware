@@ -6,14 +6,15 @@ export const setLabelOS = (win: boolean) => { osWin = win; };
 export const osLabel = (label: string, win = osWin) =>
   win ? label.replace(/\bCmd\b/, "Win") : label.replace(/\bAlt\b/, "Opt");
 
-export const LAYER_BYTES = 196; // 98 entries x 2 bytes
 export const LAYERS = 8; // 0-3 = Mac FN0-3, 4-7 = Win FN0-3
-export const KEYMAP_BYTES = LAYER_BYTES * LAYERS;
-
-export const keyAddr = (layer: number, slot: number) => layer * LAYER_BYTES + slot * 2;
+/** Slots per layer: 6 * matrix width + 2, with the width read from the keyboard (command A0 byte 4): 98 on the Air75 V3 / V2 boards, 128 on the Air100 V3-style Air96 V2. */
+let layerSlots = 98;
+export const setMatrixCols = (cols: number) => { if (cols >= 10 && cols <= 32) layerSlots = 6 * cols + 2; };
+export const keymapBytes = () => LAYERS * layerSlots * 2;
+export const keyAddr = (layer: number, slot: number) => (layer * layerSlots + slot) * 2;
 export const entryAt = (map: Uint8Array, layer: number, slot: number) => {
   const a = keyAddr(layer, slot);
-  return (map[a] << 8) | map[a + 1];
+  return a + 1 < map.length ? (map[a] << 8) | map[a + 1] : 0;
 };
 
 export const stdEntry = (usage: number) => usage & 0xff;

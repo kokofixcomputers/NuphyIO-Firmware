@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 UP = "https://drive.nuphy.io"
 NAME = sys.argv[1] if len(sys.argv) > 1 else "Air75 V2 (open firmware)"
 PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8767
+PID = int(sys.argv[3], 0) if len(sys.argv) > 3 else 0x1028
 REAL = NAME == "real"
 LOG = NAME == "log"
 LOGGER = """<script>(()=>{
@@ -20,7 +21,7 @@ LOGGER = """<script>(()=>{
 })();</script>"""
 INJECT = """<script>(()=>{
   const fake = Object.assign(new EventTarget(), {
-    opened: false, vendorId: 0x19f5, productId: 0x1028, productName: %r,
+    opened: false, vendorId: 0x19f5, productId: %d, productName: %r,
     collections: [{ usagePage: 1, usage: 0, inputReports: [{ reportId: 0 }], outputReports: [{ reportId: 0 }], featureReports: [] }],
     open: async () => { fake.opened = true; }, close: async () => { fake.opened = false; },
     sendFeatureReport: async () => {}, receiveFeatureReport: async () => new DataView(new ArrayBuffer(0)),
@@ -33,7 +34,7 @@ INJECT = """<script>(()=>{
   navigator.hid.getDevices = async () => [fake];
   navigator.hid.requestDevice = async () => [fake];
   window.__fake = fake;
-})();</script>""" % NAME
+})();</script>""" % (PID, NAME)
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         try:

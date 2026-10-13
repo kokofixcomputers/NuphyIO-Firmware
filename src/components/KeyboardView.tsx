@@ -1,5 +1,5 @@
 import { CSSProperties, ReactNode } from "react";
-import { Accessory, ROWS, accessorySlot } from "../layout";
+import { Accessory, BoardLayout, ROWS, accessorySlot } from "../layout";
 
 interface Props {
   label?: (slot: number) => string;
@@ -9,20 +9,21 @@ interface Props {
   onSelect?: (slot: number) => void;
   dim?: (slot: number) => boolean;
   className?: string;
+  layout?: BoardLayout;    // defaults to the Air75 layout
   accessory?: Accessory;   // what fills the top-right corner: a knob (push = slot 60) or a button (slot 60 as well)
 }
 
-const UNITS = 16;
-
-export default function KeyboardView({ label, color, selected, onSelect, dim, className = "", accessory, icon }: Props) {
+export default function KeyboardView({ label, color, selected, onSelect, dim, className = "", accessory, icon, layout }: Props) {
+  const rows = layout?.rows ?? ROWS, UNITS = layout?.units ?? 16;
   return (
-    <div className={`kb ${className}`}>
+    <div className={`kb ${className}`} style={{ "--units": UNITS } as CSSProperties}>
       <div className="kb-case">
-        {ROWS.map((row, r) => {
+        {rows.map((row, r) => {
           const used = row.reduce((n, k) => n + k.w, 0);
           return (
             <div className="kb-row" key={r}>
               {row.map(({ slot, w }) => {
+                if (slot < 0) return <span key={`gap${w}`} className="kb-spacer" style={{ flex: w }} />;
                 const led = color?.(slot);
                 const text = label?.(slot) ?? "";
                 const ic = icon?.(slot) ?? null;

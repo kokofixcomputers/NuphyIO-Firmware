@@ -27,8 +27,14 @@ void light_init(light_t *l, nph_t *n) {
         memset(v3idx_of_slot, 255, sizeof v3idx_of_slot);
         for (int s = 0; s < 98; s++) if (v3_has(s)) v3idx_of_slot[s] = (uint8_t)idx++;
         for (int i = 0; i < BD_KEY_LEDS; i++) {
-            const uint8_t s = BD_LED_SLOT[i];
-            led_v3[i] = v3idx_of_slot[s] != 255 ? v3idx_of_slot[s] : v3idx_of_slot[14];    /* the V2's extra Del key borrows Ins */
+            const uint8_t s = BD_LED_V3[i];
+            if (s != 0xFF) { led_v3[i] = v3idx_of_slot[s] != 255 ? v3idx_of_slot[s] : v3idx_of_slot[14]; continue; }    /* the V2's extra Del key borrows Ins */
+            int best = 0x7FFFFFFF;                                  /* keys the V3 doesn't have (a numpad) borrow the effect phase of the nearest V3 key */
+            for (int j = 0; j < BD_KEY_LEDS; j++) {
+                if (BD_LED_V3[j] == 0xFF || v3idx_of_slot[BD_LED_V3[j]] == 255) continue;
+                const int dx = BD_LED_X[i] - BD_LED_X[j], dy = BD_LED_Y[i] - BD_LED_Y[j], d = dx * dx + dy * dy;
+                if (d < best) { best = d; led_v3[i] = v3idx_of_slot[BD_LED_V3[j]]; }
+            }
         }
         ready = true;
     }
@@ -89,7 +95,7 @@ static bool in_list(const uint8_t *list, uint8_t n, uint8_t v) { for (uint8_t i 
 /* ---- key events (reactive effects) ----------------------------------------------------------------- */
 
 void light_key_event(light_t *l, uint8_t slot, bool pressed, uint32_t now) {
-    if (slot >= 98) return;
+    if (slot >= NPH_SLOTS) return;
     int led = -1;
     for (int i = 0; i < BD_KEY_LEDS; i++) if (BD_LED_SLOT[i] == slot) { led = i; break; }
     if (led < 0) return;
@@ -228,7 +234,7 @@ static void render_back(light_t *l, uint32_t now, bool caps_on, uint32_t dt) {
             if (l->heat[i] && !l->held[i]) l->heat[i] = l->heat[i] > decay ? (uint8_t)(l->heat[i] - decay) : 0;
         }
     }
-    if (caps_on) for (int i = 0; i < BD_KEY_LEDS; i++) if (BD_LED_SLOT[i] == 48) { const uint8_t w0 = scale_pct(255, bright), w = w0 < 12 ? 12 : w0; l->key[i] = (rgb_t){w, w, w}; }   /* caps-lock indicator: white at the current brightness (at least dimly visible) */
+    if (caps_on) for (int i = 0; i < BD_KEY_LEDS; i++) if (BD_LED_V3[i] == 48) { const uint8_t w0 = scale_pct(255, bright), w = w0 < 12 ? 12 : w0; l->key[i] = (rgb_t){w, w, w}; }   /* caps-lock indicator: white at the current brightness (at least dimly visible) */
 }
 
 /* ---- side light ------------------------------------------------------------------------------------ */
@@ -314,12 +320,11 @@ static uint8_t full_scale(uint8_t c) { const uint32_t v = (uint32_t)c * 1000u / 
 void light_v3_snapshot(const light_t *l, uint8_t out[NPH_LED_COUNT_V3 * 3]) {
     memset(out, 0, NPH_LED_COUNT_V3 * 3);
     for (int i = 0; i < BD_KEY_LEDS; i++) {
-        const uint8_t s = BD_LED_SLOT[i];
-        const uint8_t k = s == 60 ? 83 : v3idx_of_slot[s]; if (k == 255) continue;
+        const uint8_t k = BD_LED_SNAP[i]; if (k == 0xFF) continue;
         out[k * 3] = full_scale(l->key[i].r); out[k * 3 + 1] = full_scale(l->key[i].g); out[k * 3 + 2] = full_scale(l->key[i].b);
     }
     for (int st = 0; st < 2; st++) for (int k = 0; k < 10; k++) {
         const int src = BD_SIDE_STRIPS >= 2 ? st * BD_SIDE_STRIP_LEN + (k * (BD_SIDE_STRIP_LEN - 1) + 4) / 9 : ((st * 10 + k) * BD_SIDE_LEDS) / 20;
-        const rgb_t c = l->side[src]; uint8_t *o = &out[(84 + st * 10 + k) * 3]; o[0] = full_scale(c.r); o[1] = full_scale(c.g); o[2] = full_scale(c.b);
+        const rgb_t c = l->side[src]; uint8_t *o = &out[(BD_V3_KEY_LEDS + st * 10 + k) * 3]; o[0] = full_scale(c.r); o[1] = full_scale(c.g); o[2] = full_scale(c.b);
     }
 }
