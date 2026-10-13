@@ -18,6 +18,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export interface DeviceEvents {
   log?: (dir: "tx" | "rx" | "info" | "warn", msg: string) => void;
   disconnect?: () => void; // user-initiated or unrecoverable
+  sleepChanged?: () => void; // unsolicited F4: the keyboard toggled auto sleep itself
   reset?: () => void; // restore-factory finished (unsolicited report F2): everything must be read again
   mode?: (mode: 0 | 1) => void; // the OS slide switch moved (unsolicited report A2: [base layer 0|4, mode 0|1])
   lightChanged?: (state: Uint8Array) => void; // unsolicited D7 + 17-byte light state of the active profile (sent after a mode switch / FN lighting keys)
@@ -140,6 +141,7 @@ export class NuPhyDevice {
       if (m !== this.lastMode) { this.lastMode = m; this.ev.mode?.(m); }
       return;
     }
+    if (f[0] === 0xf4) { this.ev.sleepChanged?.(); return; }      // [F4, enabled, level-1 min, level-2 min, 4]: the sleep setting changed on the keyboard (FN + ])
     if (f[0] === 0xf2) { this.ev.reset?.(); return; }          // the keyboard was reset to factory settings
     if (f[0] === 0xd7) { this.ev.lightChanged?.(f.slice(1, 18)); return; }
     if (f[0] !== IN_FLAG) return;

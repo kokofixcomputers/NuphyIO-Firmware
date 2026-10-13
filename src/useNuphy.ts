@@ -15,6 +15,7 @@ export function useNuphy() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<ConnectInfo | null>(null);
   const [log, setLog] = useState<LogLine[]>([]);
+  const [sleepRev, setSleepRev] = useState(0);        // bumps when the keyboard reports a sleep-setting change
   const [keymap, setKeymap] = useState<Uint8Array | null>(null);
   const [light, setLight] = useState<LightState | null>(null);
   const [lightMode, setLightMode] = useState(0);
@@ -50,6 +51,7 @@ export function useNuphy() {
         activeRef.current = m; setActiveMode(m); setLightMode(m);
         toast("info", m === 1 ? "Keyboard switched to Windows mode" : "Keyboard switched to Mac mode");
       },
+      sleepChanged: () => setSleepRev((n) => n + 1),
       reset: () => {
         toast("info", "Keyboard reset to factory settings");
         const d = devRef.current;
@@ -163,6 +165,6 @@ export function useNuphy() {
 
   useEffect(() => () => { void devRef.current?.disconnect(); }, []);
 
-  return { status, error, info, log, keymap, setKeymap, patchKey, light, setLight, lightMode, setLightMode, activeMode, macros, setMacros, leds, note: push, productName, openFw, model: identify(productName) as KbModel, accessory, setAccessory, polling, toasts, toast, connect, disconnect, startPolling, stopPolling, run };
+  return { sleepRev, status, error, info, log, keymap, setKeymap, patchKey, light, setLight, lightMode, setLightMode, activeMode, macros, setMacros, leds, note: push, productName, openFw, model: identify(productName) as KbModel, accessory, setAccessory, polling, toasts, toast, connect, disconnect, startPolling, stopPolling, run };
 }
 export type Nuphy = ReturnType<typeof useNuphy>;

@@ -65,7 +65,8 @@ static void route_switch(bool to_rf) {
 /* FN+1/2/3 = Bluetooth 1-3, FN+4 = 2.4 GHz dongle: tap to switch, hold 0.3 s to pair a new device. FN+Up/Down = backlight brightness. */
 /* Unsolicited reports to the host app, exactly as the V3 sends them (unframed, on the config channel):
  *   A2 [base layer 0|4] [mode 0|1]   the OS slide switch moved
- *   D7 + 17 bytes                    light state of the active profile (after a mode switch, and after FN lighting keys) */
+ *   D7 + 17 bytes                    light state of the active profile (after a mode switch, and after FN lighting keys)
+ *   F4 + 4 bytes                     the sleep setting changed (FN + ] toggles auto sleep): [enabled, level-1 min, level-2 min, 4] */
 static uint8_t last_layer;
 static void notify_layer(uint8_t layer, uint8_t mode) { const uint8_t a2[3] = {0xA2, layer, mode}; usb_send_raw(a2, 3); last_layer = layer; }   /* the V3 reports the active layer (FN0..FN3) the same way as the mode */
 static void notify_mode(uint8_t mode) { notify_layer(mode ? 4 : 0, mode); }
@@ -88,7 +89,10 @@ static void on_fn(void *ctx, uint16_t e, bool pressed) {
     }
     if (e == 0x7E13) { fn_reset_t = pressed ? millis() : 0; return; }                 /* FN+[ held 3 s: factory reset (like DEV_RESET) */
     if (e == 0x7E19) { fn_test_t = pressed ? millis() : 0; lit.test = pressed ? 1 : 0; return; }   /* FN+C held: RGB test */
-    if (pressed && fn_apply(&dev, lit.mode & 1, e)) notify_light(lit.mode);           /* brightness / effect / speed / hue / side light / sleep / battery / caps */
+    if (pressed && fn_apply(&dev, lit.mode & 1, e)) {
+        if (e == 0x7E14) { const uint8_t f4[5] = {0xF4, dev.sleepcfg[0], dev.sleepcfg[1], dev.sleepcfg[2], dev.sleepcfg[3]}; usb_send_raw(f4, 5); }   /* the V3 reports a sleep-setting change as F4 + the 4 config bytes, before the light state */
+        notify_light(lit.mode);           /* brightness / effect / speed / hue / side light / sleep / battery / caps */
+    }
 }
 
 /* blink the channel's key (1/2/3/4) while the radio is not connected: fast = pairing, slow = linking */

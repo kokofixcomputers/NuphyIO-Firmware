@@ -46,6 +46,7 @@ export default function AdvancedPanel({ nu }: { nu: Nuphy }) {
     setTd(Array.from({ length: TD_SLOTS }, (_, i) => parseTapDance(r.td.subarray(i * 8, i * 8 + 8))));
     setTgl(Array.from({ length: TGL_SLOTS }, (_, i) => parseTgl(r.tgl.subarray(i * 2, i * 2 + 2))));
   };
+  useEffect(() => { if (nu.sleepRev) void nu.run((d) => d.readSleep()).then((c) => c && setSleep(c)); }, [nu.sleepRev]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void nu.run((d) => d.readSleep()).then((c) => c && setSleep(c)); void refreshStore(); void nu.run((d) => d.readModeSettings()).then((m) => m && setMode(m)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const saveSleep = async (c: SleepCfg) => {
     setSleep(c);
