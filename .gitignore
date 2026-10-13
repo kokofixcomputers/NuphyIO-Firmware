@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.DS_Store
+# firmware build output and host-test binaries
+firmware/air75v2/build/
+firmware/air75v2/test/sim
+firmware/air75v2/test/*_test
+firmware/air75v2/test/e2e.cjs
+# nuphy.io replay harness: build products and logs from a real keyboard
+tools/harness/libnph.dylib
+tools/harness/nph_proto_h.c
+tools/harness/*.log
+# raw sniffer captures from a real keyboard session (the fitted recordings in tools/rec-*.txt are kept)
+tools/capture-*.txt
+tools/macrorec.txt
+.claude/
+tools/v3-light-original.txt
